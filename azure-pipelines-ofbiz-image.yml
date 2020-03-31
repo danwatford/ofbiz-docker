@@ -1,0 +1,55 @@
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: CmdLine@2
+  displayName: Retrieve additional plugin sources
+  inputs:
+    script: |
+      if [ -n "$PLUGIN_REPO" ]; then
+
+        if [ -z "$PLUGIN_BRANCH" ]; then
+          PLUGIN_BRANCH=master
+        fi
+
+        if [ -n "$REPO_PAT" ]; then
+          echo "REPO_PAT set, therefore assuming authentication is required for the repository."
+          AUTH=$(echo -n ":$REPO_PAT" | openssl base64 | tr -d '\n')
+          mkdir ofbiz-framework/plugins
+          cd ofbiz-framework/plugins
+          git -c http.$PLUGIN_REPO.git.extraheader="AUTHORIZATION: basic $AUTH" clone $PLUGIN_REPO --branch "$PLUGIN_BRANCH"
+        else
+          echo "REPO_PAT not set therefore assuming no authentication required for access to repository."
+          GIT_TERMINAL_PROMPT=0 git clone $PLUGIN_REPO --branch "$PLUGIN_BRANCH"
+          if [ $? -ne 0 ]; then
+            echo "Failed to clone repository: $PLUGIN_REPO"
+            echo "If this was an authentication issue then ensure a PAT (Personal Access Token) is set in environment variable REPO_PAT"
+            echo "See https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line"
+            exit 1
+          fi
+        fi
+      fi
+
+- task: Gradle@2
+  displayName: Build docker image
+  inputs:
+    workingDirectory: ''
+    gradleWrapperFile: 'gradlew'
+    gradleOptions: '-Xmx3072m'
+    javaHomeOption: 'JDKVersion'
+    jdkVersionOption: '1.8'
+    jdkArchitectureOption: 'x64'
+    publishJUnitResults: false
+    tasks: 'buildOfbizImage'
+
+- task: Docker@2
+  displayName: Publish docker image
+  inputs:
+    command: 'push'
+    containerRegistry: 'OfBizContainerRegistry'
+    repository: $(IMAGE_NAME)
+    tags: 'latest'

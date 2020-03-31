@@ -1,0 +1,12 @@
+version: '3.2'
+
+services:
+  activate:
+    image: ofbiz:latest
+    command: ./gradlew "ofbiz --load-data dir=local-config" ofbiz
+    volumes:
+      - type: bind
+        source: ./local-config
+        target: /ofbiz/local-config
+    ports:
+      - 8443:8443

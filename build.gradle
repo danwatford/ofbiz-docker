@@ -1,0 +1,53 @@
+plugins {
+    id 'com.bmuschko.docker-remote-api' version '4.10.0'
+}
+
+// Project variables
+String MAINTAINER = 'Daniel Watford'
+String BASE_JDK_IMAGE = 'openjdk:8-jdk'
+String LOAD_DATA_READERS = "seed,seed-initial,demo,ext"
+
+String IMAGE_NAME = System.getenv('IMAGE_NAME') ?: "ofbiz"
+
+import com.bmuschko.gradle.docker.tasks.image.Dockerfile
+
+repositories {
+    mavenCentral()
+}
+
+task createOfbizDockerfile(type: Dockerfile) {
+    from BASE_JDK_IMAGE
+    label(['maintainer': MAINTAINER])
+
+    // Set default 2G memory for OFBiz.
+    environmentVariable('JAVA_OPTS', '-Xmx2G')
+
+    exposePort(8080, 8443)
+
+    // NOP to get gradle downloaded.
+    runCommand('mkdir /ofbiz')
+    copyFile('/ofbiz-framework/gradlew', '/ofbiz/')
+    copyFile('/ofbiz-framework/gradle', '/ofbiz/gradle')
+    workingDir('/ofbiz')
+    runCommand('./gradlew')
+
+    copyFile('/ofbiz-framework', '/ofbiz')
+
+    // Needed for tests run during the build.
+    runCommand('mkdir --parents runtime/tmp')
+
+    // Build and load data for core Ofbiz.
+    runCommand('./gradlew jar startScripts')
+
+    runCommand("./gradlew \"ofbiz --load-data readers=${LOAD_DATA_READERS}\" loadAdminUserLogin -PuserLoginId=admin")
+}
+
+/*
+    Use the Exec task rather than the DockerBuildImage task when using a Dockerfile which is not in the context.
+    It appear the docker-gradle-plugin sends the path to the Dockerfile in a format that the Windows docker daemon cannot handle.
+ */
+task buildOfbizImage(type: Exec) {
+    dependsOn createOfbizDockerfile
+
+    commandLine "docker", "build", "--file", "build/docker/Dockerfile", "--tag", IMAGE_NAME + ":latest", "."
+}
