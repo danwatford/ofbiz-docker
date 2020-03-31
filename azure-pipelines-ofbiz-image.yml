@@ -51,5 +51,5 @@ steps:
   inputs:
     command: 'push'
     containerRegistry: 'OfBizContainerRegistry'
-    repository: $(IMAGE_NAME)
+    repository: $(IMAGE_NAME_WITHOUT_REPO)
     tags: 'latest'
