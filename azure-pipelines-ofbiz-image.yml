@@ -10,6 +10,9 @@ steps:
   displayName: Retrieve additional plugin sources
   inputs:
     script: |
+      mkdir ofbiz-framework
+      git clone https://github.com/apache/ofbiz-framework --branch trunk
+
       if [ -n "$PLUGIN_REPO" ]; then
 
         if [ -z "$PLUGIN_BRANCH" ]; then

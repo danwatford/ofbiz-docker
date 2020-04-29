@@ -1,4 +1,0 @@
-[submodule "ofbiz-framework"]
-	path = ofbiz-framework
-	url = https://github.com/apache/ofbiz-framework
-	branch = trunk
